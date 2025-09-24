@@ -6,13 +6,13 @@ if (token) {
   const input = document.querySelector('input#token');
   input.value = token;
   input.select();
-  document.title = "Authorization successful — Throttled Backup";
+  document.title = "Authorization successful — Adaptive Backup";
   document.querySelector('#no_auth').style.display = 'none';
   document.querySelector('#access_denied').style.display = 'none';
 } else if (error) {
   const errorElmnt = document.querySelector('p#error');
   errorElmnt.innerText = "Details: " + error;
-  document.title = "Authorization denied — Throttled Backup";
+  document.title = "Authorization denied — Adaptive Backup";
   document.querySelector('#no_auth').style.display = 'none';
   document.querySelector('#authorized').style.display = 'none';
 } else {

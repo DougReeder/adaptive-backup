@@ -1,19 +1,20 @@
 {
-  "name": "throttled-backup",
+  "name": "adaptive-backup",
   "version": "0.1.0",
   "description": "remoteStorage backup and restore utility which limits the number of simultaneous requests and honors status 429 and 503 ",
   "type": "module",
   "main": "backup.js",
   "bin": {
-    "throttled-backup": "./backup.js",
-    "throttled-restore": "./restore.js"
+    "adaptive-backup": "./backup.js",
+    "adaptive-restore": "./restore.js"
   },
   "scripts": {
-    "test": "node --test tests/*.js"
+    "test": "node --test tests/*.js",
+    "authpage": "aws s3 sync authPage/ s3://web-static.hominidsoftware.com/adaptivebackup/"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DougReeder/throttled-backup.git"
+    "url": "git+https://github.com/DougReeder/adaptive-backup.git"
   },
   "keywords": [
     "remoteStorage",
@@ -22,9 +23,9 @@
   "author": "Doug Reeder",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/DougReeder/throttled-backup/issues"
+    "url": "https://github.com/DougReeder/adaptive-backup/issues"
   },
-  "homepage": "https://github.com/DougReeder/throttled-backup#readme",
+  "homepage": "https://github.com/DougReeder/adaptive-backup#readme",
   "dependencies": {
     "colors": "^1.4.0",
     "commander": "^14.0.1",

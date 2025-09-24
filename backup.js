@@ -22,7 +22,7 @@ program.parse(process.argv);
 const options = program.opts();
 console.log("options:", options);
 
-const CLIENT_ID = 'throttled-backup.hominidsoftware.com';
+const CLIENT_ID = 'adaptivebackup.hominidsoftware.com';
 const ORIGIN = 'https://' + CLIENT_ID;
 const backupDir     = options.backupDir;
 const category      = options.category || '';
