@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>No Authorization Info — Throttled Backup</title>
+  <link href="./authPage.css" rel="stylesheet" />
+  <script defer src="./hashToToken.js"></script>
+</head>
+<body>
+
+<section id="no_auth">
+  <h1>No Authorization Info</h1>
+  <p>Some mistake has led you here.</p>
+</section>
+
+<section id="authorized">
+  <h1>Authorization successful</h1>
+  <p>Copy this token and paste it in your terminal:</p>
+  <!--  <div>-->
+  <input type=text id=token readonly />
+  <!--  </div>-->
+</section>
+
+<section id="access_denied">
+  <h1>Authorization denied</h1>
+  <p>Try the authorization process again and make sure you approve access for Throttled Backup on the page from your remoteStorage server.
+  </p>
+  <p id="error"></p>
+</section>
+
+<footer>
+  <p>This page is part of <a href="https://github.com/DougReeder/throttled-backup">Throttled Backup</a></p>
+</footer>
+
+</body>
+</html>

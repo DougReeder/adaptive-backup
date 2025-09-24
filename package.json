@@ -1,0 +1,39 @@
+{
+  "name": "throttled-backup",
+  "version": "0.1.0",
+  "description": "remoteStorage backup and restore utility which limits the number of simultaneous requests and honors status 429 and 503 ",
+  "type": "module",
+  "main": "backup.js",
+  "bin": {
+    "throttled-backup": "./backup.js",
+    "throttled-restore": "./restore.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DougReeder/throttled-backup.git"
+  },
+  "keywords": [
+    "remoteStorage",
+    "backup"
+  ],
+  "author": "Doug Reeder",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DougReeder/throttled-backup/issues"
+  },
+  "homepage": "https://github.com/DougReeder/throttled-backup#readme",
+  "dependencies": {
+    "colors": "^1.4.0",
+    "commander": "^14.0.1",
+    "opener": "^1.5.2",
+    "prompt": "^1.3.0",
+    "webfinger": "^0.4.2",
+    "webfinger.js": "^2.8.2"
+  },
+  "devDependencies": {
+    "remotestoragejs": "^2.0.0-beta.8"
+  }
+}

@@ -1,0 +1,25 @@
+body {
+    margin: 1.5em;
+    text-align: center;
+}
+
+section#authorized h1 {
+    color: green;
+}
+
+section#access_denied h1 {
+    color: red;
+
+}
+
+section#no_auth h1 {
+    color: red;
+
+}
+
+input#token {
+    width: calc(100% - 2em);
+    padding: 0.5em;
+    fontSize: 1.5em;
+}
+
