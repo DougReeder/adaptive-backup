@@ -31,7 +31,6 @@
     "commander": "^14.0.1",
     "opener": "^1.5.2",
     "prompt": "^1.3.0",
-    "webfinger": "^0.4.2",
     "webfinger.js": "^2.8.2"
   }
 }
