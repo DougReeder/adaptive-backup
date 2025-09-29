@@ -113,6 +113,7 @@ describe("checkFetch", function (context) {
     );
 
     const checkPrmse = backup.checkFetch();
+    await backup.pausePrms;
     assert.strictEqual(backup.queue.get(PATH1).inFlight, true);
     await checkPrmse;
     const call = fetchMock.callHistory.lastCall();
@@ -140,7 +141,8 @@ describe("checkFetch", function (context) {
 /myfavoritedrinks/drink"}
     );
 
-    const checkPrmse = Promise.allSettled([backup.checkFetch(), backup.checkFetch()]) ;
+    const checkPrmse = Promise.allSettled([backup.checkFetch(), backup.checkFetch()]);
+    await backup.pausePrms;
     assert.strictEqual(backup.queue.get(PATH1).inFlight, true);
     assert.strictEqual(backup.queue.get(PATH2).inFlight, true);
     await checkPrmse;
@@ -167,8 +169,8 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH3);
 
     fetchMock.mockGlobal()
-        .route(new URL(PATH1.slice(1), ENDPOINT), {throws: new TypeError("Failed to fetch")})
-        .route(new URL(PATH2.slice(1), ENDPOINT), 999);
+        .route(new URL(PATH1.slice(1), ENDPOINT), {throws: new TypeError(`Failed to fetch ${PATH1}`)})
+        .route(new URL(PATH2.slice(1), ENDPOINT), {throws: new Error(`Request timed out on ${PATH2}`)})
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
     // The client should try again
@@ -264,5 +266,108 @@ describe("checkFetch", function (context) {
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH2.split('/'))), {code: 'ENOENT'});
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 2);
+  });
+
+  it("should, on status 429, pause all requests for Retry-After time, and move item to end of queue", async function () {
+    const BACKUP_PATH = '/tmp/retry-after/'
+    await rm(BACKUP_PATH, {recursive: true, force: true});
+    await mkdir(path.join(BACKUP_PATH, '/category/folder/'), {recursive: true});
+    mock.method(console, 'warn');
+    global.setImmediate = mock.fn();
+    global.setTimeout = mock.fn();
+    const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 1}, ENDPOINT, '0.42');
+    backup.enqueue(PATH1);
+    backup.enqueue(PATH2);
+    backup.enqueue(PATH3);
+    fetchMock.mockGlobal()
+        .route(new URL(PATH1.slice(1), ENDPOINT), {status: 429, headers: {'Retry-After': '7'}});
+
+    let oldPausePrms = backup.pausePrms;
+    await backup.checkFetch();
+    assert.notStrictEqual(backup.pausePrms, oldPausePrms);
+    assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
+    // verifies warning was logged
+    const pauseMsg = console.warn.mock.calls.find(call => /pausing for 7s/.test(call.arguments[0]));
+    assert(pauseMsg);
+    assert.equal(backup.defaultRetryAfterMs, 1500);
+    // The client should try again
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
+    // the file was not written
+    await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // when fetch is complete, checks queue
+    assert.equal(setImmediate.mock.callCount(), 1);
+  });
+
+  it("should, on status 503, pause all requests until Retry-After time, and move item to end of queue", async function () {
+    const RETRY_AFTER = new Date(Date.now() + 10 * 60 * 1000);   // 10 minutes
+    const PAUSE_REGEXP = /pausing for ([\d.]+)s/;
+    const BACKUP_PATH = '/tmp/retry-after/'
+    await rm(BACKUP_PATH, {recursive: true, force: true});
+    await mkdir(path.join(BACKUP_PATH, '/category/folder/'), {recursive: true});
+    mock.method(console, 'warn');
+    global.setImmediate = mock.fn();
+    global.setTimeout = mock.fn();
+    const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 1}, ENDPOINT, '0.42');
+    backup.enqueue(PATH1);
+    backup.enqueue(PATH2);
+    backup.enqueue(PATH3);
+    fetchMock.mockGlobal()
+        .route(new URL(PATH1.slice(1), ENDPOINT), {status: 503, headers: {'Retry-After': RETRY_AFTER}});
+
+    let oldPausePrms = backup.pausePrms;
+    await backup.checkFetch();
+    assert.notStrictEqual(backup.pausePrms, oldPausePrms);
+    assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
+    // verifies warning was logged
+    const pauseCall = console.warn.mock.calls.find(call => PAUSE_REGEXP.exec(call.arguments[0]));
+    const pauseSec = parseFloat(PAUSE_REGEXP.exec(pauseCall.arguments[0])[1]);
+    assert(pauseSec > 9*60);   // more than 9 minutes
+    assert(pauseSec < 11*60);   // less than 11 minutes
+    assert.equal(backup.defaultRetryAfterMs, 1500);
+    // The client should try again
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
+    // the file was not written
+    await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // when fetch is complete, checks queue
+    assert.equal(setImmediate.mock.callCount(), 1);
+  });
+
+  it("should, on status 503 w/o Retry-After header, pause all requests for default time, and move item to end of queue", async function () {
+    const BACKUP_PATH = '/tmp/retry-after/'
+    await rm(BACKUP_PATH, {recursive: true, force: true});
+    await mkdir(path.join(BACKUP_PATH, '/category/folder/'), {recursive: true});
+    mock.method(console, 'warn');
+    global.setImmediate = mock.fn();
+    global.setTimeout = mock.fn();
+    const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 1}, ENDPOINT, '0.42');
+    backup.enqueue(PATH1);
+    backup.enqueue(PATH2);
+    backup.enqueue(PATH3);
+    fetchMock.mockGlobal()
+        .route(new URL(PATH1.slice(1), ENDPOINT), 503);
+
+    let oldPausePrms = backup.pausePrms;
+    await backup.checkFetch();
+    assert.notStrictEqual(backup.pausePrms, oldPausePrms);
+    assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
+    // verifies warning was logged
+    const pauseMsg = console.warn.mock.calls.find(call => /pausing for 1.5s/.test(call.arguments[0]));
+    assert(pauseMsg);
+    assert.equal(backup.defaultRetryAfterMs, 3000);
+    // The client should try again
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
+    // the file was not written
+    await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // when fetch is complete, checks queue
+    assert.equal(setImmediate.mock.callCount(), 1);
   });
 });

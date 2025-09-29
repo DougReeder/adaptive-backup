@@ -1,4 +1,4 @@
-
+import process from "node:process";
 import os from "node:os";
 import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
@@ -6,7 +6,6 @@ import encodePath from './encodePath.js';
 import colors from "colors";
 
 const MAX_TRIES     = 3;
-const DEFAULT_PAUSE = 1500;
 
 export class Backup {
   ORIGIN;
@@ -20,6 +19,8 @@ export class Backup {
 
   queue = new Map();
   pausePrms = Promise.resolve(true);   // initially not paused
+  defaultRetryAfterMs = 1500;
+  isAbandoned = false;
 
   constructor(ORIGIN, options, storageEndpoint, programVersion) {
     this.ORIGIN = ORIGIN;
@@ -56,6 +57,10 @@ export class Backup {
   }
 
   enqueue(rsPath) {
+    if (this.isAbandoned) {
+      console.error(colors.red(`Backup abandoned. Not queueing ${rsPath}`));
+      return;
+    }
     if (!this.queue.has(rsPath)) {
       this.queue.set(rsPath, {inFlight: false, tries: 0});
       console.debug(colors.gray(`Enqueued ${rsPath}`));
@@ -65,6 +70,8 @@ export class Backup {
   }
 
   async checkFetch() {
+    await this.pausePrms;   // waits until not paused
+
     let numInFlight = 0;
     let nextPath;
     for (const [rsPath, fetchRecord] of this.queue) {
@@ -131,11 +138,11 @@ export class Backup {
           break;
         case 429:
         case 503:
-          const retryAfter = parseInt(res.headers.get('retry-after')) * 1000 || DEFAULT_PAUSE;
+          const retryAfterMs = this.extractRetryAfterMs(res);
           this.pausePrms = new Promise((res) => {
-            setTimeout(res, retryAfter);
+            setTimeout(res, retryAfterMs);
           });
-          console.warn(colors.yellow(`${res.status}${res.statusText ? " " + res.statusText : ""}: pausing for ${retryAfter}ms, after ${rsPath}`))
+          console.warn(colors.yellow(`${res.status}${res.statusText ? " " + res.statusText : ""}: pausing for ${retryAfterMs/1000}s, will retry ${rsPath}`))
           break;
         case 401:
         case 403:
@@ -151,7 +158,7 @@ export class Backup {
         case 502:
         case 504:
         default:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${rsPath} “${await res.text()}”`));
+          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${await res.text()}: will retry ${rsPath}`));
           break;
       }
     } catch (err) {
@@ -163,6 +170,9 @@ export class Backup {
         fetchRecord.inFlight = false;
         this.queue.delete(rsPath);  // moves to end
         this.queue.set(rsPath, fetchRecord);
+      }
+      if (this.isAbandoned) {
+        this.dequeue(rsPath);
       }
       // imposes a slight delay to allow the connection to be closed,
       // and allows the queue to be updated
@@ -196,8 +206,43 @@ export class Backup {
     this.queue.delete(rsPath);
     console.debug(colors.gray(`Dequeued ${rsPath}`));
     if (this.queue.size === 0) {
+      this.complete();
+    }
+  }
+
+  complete() {
+    if (this.isAbandoned) {
+      console.error(colors.red(`Backup abandoned before completion. Exiting.`));
+      process.exit(2);
+    } else {
       console.info(colors.green(`Backup completed`));
       process.exit(0);
+    }
+  }
+
+  extractRetryAfterMs(res) {
+    let retryAfterMs = parseInt(res.headers.get('retry-after')) * 1000;
+    if (!(retryAfterMs > 0)) {
+      retryAfterMs = Date.parse(res.headers.get('retry-after')) - Date.now();
+    }
+    if (!(retryAfterMs > 0)) {
+      retryAfterMs = this.defaultRetryAfterMs;
+      this.defaultRetryAfterMs *= 2;
+    }
+    if (retryAfterMs > 60 * 60 * 1000) {   // 1 hour
+      console.error(colors.red(`Pausing for ${retryAfterMs/1000/60} minutes is too long. Abandoning backup.`));
+      this.abandonGracefully();
+    }
+    return retryAfterMs;
+  }
+
+  abandonGracefully() {
+    this.isAbandoned = true;
+
+    for (const [rsPath, fetchRecord] of this.queue) {
+      if (!fetchRecord.inFlight) {
+        this.queue.delete(rsPath);
+      }
     }
   }
 }
