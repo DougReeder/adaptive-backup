@@ -109,7 +109,7 @@ export class Backup {
             await this.fetchItem(nextPath, this.handleDocument.bind(this));
           }
         } else {   // too many tries
-          console.error(colors.red(`${nextPath} ${fetchRecord.tries}/${MAX_TRIES} tries; giving up`));
+          console.error(colors.red(`${nextPath} ${fetchRecord.tries-1}/${MAX_TRIES} tries; giving up`));
           this.dequeue(nextPath);
         }
       } else {
@@ -230,13 +230,14 @@ export class Backup {
       this.defaultRetryAfterMs *= 2;
     }
     if (retryAfterMs > 60 * 60 * 1000) {   // 1 hour
-      console.error(colors.red(`Pausing for ${retryAfterMs/1000/60} minutes is too long. Abandoning backup.`));
+      console.error(colors.red(`Pausing for ${retryAfterMs/1000/60} minutes is too long.`));
       this.abandonGracefully();
     }
     return retryAfterMs;
   }
 
   abandonGracefully() {
+    console.error(colors.red(`Abandoning all downloads except those in flight.`));
     this.isAbandoned = true;
 
     for (const [rsPath, fetchRecord] of this.queue) {

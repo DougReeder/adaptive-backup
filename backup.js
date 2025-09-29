@@ -80,8 +80,8 @@ do {
     authEndpoint = link?.properties?.["auth-endpoint"] || link?.properties?.["http://tools.ietf.org/html/rfc6749#section-4.2"];
     storageEndpoint = '/' === link.href.slice(-1) ? link.href : link.href + '/';
   } catch (err) {
-    console.error(colors.red(err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
     if ("canceled" === err.message) { process.exit(1); }
+    console.error(colors.red(`WebFinger for “${userAddress}” failed:`, err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
     userAddress = '';
   }
 } while (!storageEndpoint);
@@ -105,8 +105,23 @@ if (!options.token) {
 try {
   const backup = new Backup(ORIGIN, options, storageEndpoint, pkg.version);
   backup.execute();
+
+  process.on('SIGINT', handleInterruption);
+  process.on('SIGTERM', handleInterruption);
+  process.on('SIGQUIT', handleInterruption);
+  process.on('SIGHUP', handleInterruption);
+
+  function handleInterruption(signal) {
+      console.error(colors.red(`Received ${signal}`));
+      backup.abandonGracefully();
+
+      setTimeout(() => {
+        console.error(colors.red(`Exiting abruptly. These downloads are probably incomplete:`));
+        const incomplete = Array.from(backup.queue.keys()).join("\n");
+        console.error(colors.red(incomplete));
+        process.exit(3);
+      }, 10_000)
+  }
 } catch (err) {
   console.error(colors.red(err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
 }
-
-
