@@ -161,6 +161,8 @@ export class Backup {
       const fetchRecord = this.queue.get(rsPath);
       if (fetchRecord) {
         fetchRecord.inFlight = false;
+        this.queue.delete(rsPath);  // moves to end
+        this.queue.set(rsPath, fetchRecord);
       }
       // imposes a slight delay to allow the connection to be closed,
       // and allows the queue to be updated

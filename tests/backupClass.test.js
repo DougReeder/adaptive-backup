@@ -155,7 +155,7 @@ describe("checkFetch", function (context) {
     assert.equal(setTimeout.mock.callCount(), 1);
   });
 
-  it("should, on connection error, leave item in queue", async function () {
+  it("should, on connection error, move item to end of queue", async function () {
     const BACKUP_PATH = '/tmp/connection-error/'
     await rm(BACKUP_PATH, {recursive: true, force: true});
     await mkdir(path.join(BACKUP_PATH, '/category/folder/'), {recursive: true});
@@ -173,10 +173,25 @@ describe("checkFetch", function (context) {
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
     // The client should try again
     assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
+
+    await backup.checkFetch();
+    assert.equal(fetchMock.callHistory.calls()[1].args[0].href, new URL(PATH2.slice(1), ENDPOINT).href);
+    // The client should try again
+    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder2 = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
+    // the file was not written
+    await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH2.split('/'))), {code: 'ENOENT'});
+    // when fetch is complete, checks queue
+    assert.equal(setImmediate.mock.callCount(), 2);
   });
 
   it("should, on permanent error, remove item from queue", async function () {
@@ -212,7 +227,7 @@ describe("checkFetch", function (context) {
     assert.equal(setImmediate.mock.callCount(), 2);
   });
 
-  it("should, on server error, leave item in queue", async function () {
+  it("should, on server error, move item to end of queue", async function () {
     const BACKUP_PATH = '/tmp/server-error/'
     await rm(BACKUP_PATH, {recursive: true, force: true});
     await mkdir(path.join(BACKUP_PATH, '/category/folder/'), {recursive: true});
@@ -222,17 +237,32 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH1);
     backup.enqueue(PATH2);
     backup.enqueue(PATH3);
-
     fetchMock.mockGlobal()
         .route(new URL(PATH1.slice(1), ENDPOINT), 500)
         .route(new URL(PATH2.slice(1), ENDPOINT), 502);
+
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
     // The client should try again
     assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
+
+    await backup.checkFetch();
+    assert.equal(fetchMock.callHistory.calls()[1].args[0].href, new URL(PATH2.slice(1), ENDPOINT).href);
+    // The client should try again
+    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, tries: 1});
+    // The item was moved to the back of the queue.
+    const queueOrder2 = Array.from(backup.queue.keys());
+    assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
+    // the file was not written
+    await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH2.split('/'))), {code: 'ENOENT'});
+    // when fetch is complete, checks queue
+    assert.equal(setImmediate.mock.callCount(), 2);
   });
 });
