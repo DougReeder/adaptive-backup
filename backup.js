@@ -10,6 +10,10 @@ import WebFinger from "webfinger.js";
 import opener from "opener";
 import {Backup} from "./src/backupClass.js";
 
+if (!process.env.NODE_DEBUG) {
+  console.debug = () => {};
+}
+
 function stringWithoutSlashes(value, _) {
   value = value.replace(/\//g, '');
   // if (/^public$/i.test(value)) {
