@@ -20,7 +20,7 @@ describe("execute", function() {
 
     await backup.execute();
 
-    assert.deepEqual(backup.queue.get('/'), {inFlight: false, tries: 0});
+    assert.deepEqual(backup.queue.get('/'), {inFlight: false, failures: 0});
     assert.equal(backup.queue.size, 1);
     assert.equal(backup.checkFetch.mock.callCount(), 1);
   });
@@ -33,7 +33,7 @@ describe("execute", function() {
 
     await backup.execute();
 
-    assert.deepEqual(backup.queue.get('/foo/'), {inFlight: false, tries: 0});
+    assert.deepEqual(backup.queue.get('/foo/'), {inFlight: false, failures: 0});
     assert.equal(backup.queue.size, 1);
     assert.equal(backup.checkFetch.mock.callCount(), 1);
   });
@@ -46,8 +46,8 @@ describe("execute", function() {
 
     await backup.execute();
 
-    assert.deepEqual(backup.queue.get('/foo/'), {inFlight: false, tries: 0});
-    assert.deepEqual(backup.queue.get('/public/foo/'), {inFlight: false, tries: 0});
+    assert.deepEqual(backup.queue.get('/foo/'), {inFlight: false, failures: 0});
+    assert.deepEqual(backup.queue.get('/public/foo/'), {inFlight: false, failures: 0});
     assert.equal(backup.queue.size, 2);
     assert.equal(backup.checkFetch.mock.callCount(), 1);
   });
@@ -58,10 +58,10 @@ describe("enqueue", function (context) {
     const backup = new Backup(ORIGIN, {}, 'https://server/user', '0.42');
     backup.enqueue(PATH1);
     backup.enqueue(PATH2);
-    backup.queue.get(PATH1).tries = 99;
+    backup.queue.get(PATH1).failures = 99;
     backup.enqueue(PATH1);
 
-    assert.equal(backup.queue.get(PATH1).tries, 99);
+    assert.equal(backup.queue.get(PATH1).failures, 99);
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH1, PATH2 ]);
 
@@ -174,7 +174,7 @@ describe("checkFetch", function (context) {
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 1});
     // The item was moved to the back of the queue.
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
@@ -186,7 +186,7 @@ describe("checkFetch", function (context) {
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[1].args[0].href, new URL(PATH2.slice(1), ENDPOINT).href);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, failures: 1});
     // The item was moved to the back of the queue.
     const queueOrder2 = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
@@ -246,7 +246,7 @@ describe("checkFetch", function (context) {
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 1});
     // The item was moved to the back of the queue.
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
@@ -258,7 +258,7 @@ describe("checkFetch", function (context) {
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[1].args[0].href, new URL(PATH2.slice(1), ENDPOINT).href);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, failures: 1});
     // The item was moved to the back of the queue.
     const queueOrder2 = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
@@ -291,7 +291,7 @@ describe("checkFetch", function (context) {
     assert(pauseMsg);
     assert.equal(backup.defaultRetryAfterMs, 1500);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 0});
     // The item was moved to the back of the queue.
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
@@ -328,7 +328,7 @@ describe("checkFetch", function (context) {
     assert(pauseSec < 11*60);   // less than 11 minutes
     assert.equal(backup.defaultRetryAfterMs, 1500);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 0});
     // The item was moved to the back of the queue.
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
@@ -361,7 +361,7 @@ describe("checkFetch", function (context) {
     assert(pauseMsg);
     assert.equal(backup.defaultRetryAfterMs, 3000);
     // The client should try again
-    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, tries: 1});
+    assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 0});
     // The item was moved to the back of the queue.
     const queueOrder = Array.from(backup.queue.keys());
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);

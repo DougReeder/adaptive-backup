@@ -5,7 +5,7 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import encodePath from './encodePath.js';
 import colors from "colors";
 
-const MAX_TRIES     = 3;
+const MAX_FAILURES_PER_PATH = 3;
 
 export class Backup {
   ORIGIN;
@@ -62,7 +62,7 @@ export class Backup {
       return;
     }
     if (!this.queue.has(rsPath)) {
-      this.queue.set(rsPath, {inFlight: false, tries: 0});
+      this.queue.set(rsPath, {inFlight: false, failures: 0});
       console.debug(colors.gray(`Enqueued ${rsPath}`));
     } else {
       console.warn(colors.yellow(`${rsPath} was already in queue`));
@@ -101,16 +101,11 @@ export class Backup {
         }
 
         const fetchRecord = this.queue.get(nextPath);
-        if (++fetchRecord.tries <= MAX_TRIES) {
-          fetchRecord.inFlight = true;
-          if ('/' === nextPath.slice(-1)) {
-            await this.fetchItem(nextPath, this.handleFolder.bind(this));
-          } else {
-            await this.fetchItem(nextPath, this.handleDocument.bind(this));
-          }
-        } else {   // too many tries
-          console.error(colors.red(`${nextPath} ${fetchRecord.tries-1}/${MAX_TRIES} tries; giving up`));
-          this.dequeue(nextPath);
+        fetchRecord.inFlight = true;
+        if ('/' === nextPath.slice(-1)) {
+          await this.fetchItem(nextPath, fetchRecord, this.handleFolder.bind(this));
+        } else {
+          await this.fetchItem(nextPath, fetchRecord, this.handleDocument.bind(this));
         }
       } else {
         console.debug(colors.gray("connections are maxed-out"));
@@ -120,7 +115,7 @@ export class Backup {
     }
   }
 
-  async fetchItem(rsPath, handle) {
+  async fetchItem(rsPath, fetchRecord, handle) {
     try {
       console.debug(colors.gray(`Fetching ${rsPath}`));
       const fetchOptions = {
@@ -156,23 +151,31 @@ export class Backup {
           break;
         case 500:
         case 502:
-        case 504:
         default:
+          ++fetchRecord.failures;
+          // falls through
+        case 504:
           console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${await res.text()}: will retry ${rsPath}`));
           break;
       }
     } catch (err) {
+      ++fetchRecord.failures;
       console.error(colors.red(rsPath + ":", err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
     } finally {
       // TODO: Should the request be aborted if we don't consume the body?
-      const fetchRecord = this.queue.get(rsPath);
-      if (fetchRecord) {
+      if (this.queue.has(rsPath)) {
         fetchRecord.inFlight = false;
         this.queue.delete(rsPath);  // moves to end
-        this.queue.set(rsPath, fetchRecord);
-      }
-      if (this.isAbandoned) {
-        this.dequeue(rsPath);
+        this.queue.set(rsPath, fetchRecord);  // moves to end
+
+        if (fetchRecord.failures >= MAX_FAILURES_PER_PATH) {
+          console.error(colors.red(`${nextPath} ${fetchRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
+          this.dequeue(nextPath);
+        }
+
+        if (this.isAbandoned) {
+          this.dequeue(rsPath);
+        }
       }
       // imposes a slight delay to allow the connection to be closed,
       // and allows the queue to be updated
