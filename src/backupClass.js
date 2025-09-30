@@ -18,6 +18,7 @@ export class Backup {
   programVersion;
 
   queue = new Map();
+  failedPaths = new Set();
   pausePrms = Promise.resolve(true);   // initially not paused
   defaultRetryAfterMs = 1500;
   isAbandoned = false;
@@ -87,7 +88,7 @@ export class Backup {
         }
       }
     }
-    console.debug(colors.gray(`${this.queue.size} in queue; ${numInFlight}/${this.simultaneous} connections in use`));
+    console.debug(colors.gray(`${this.queue.size} items in queue; ${numInFlight}/${this.simultaneous} connections in use`));
 
     if (nextPath) {
       if (numInFlight < this.simultaneous) {
@@ -143,11 +144,13 @@ export class Backup {
         case 403:
           console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""}: This token lacks permission to read ${rsPath}`));
           this.dequeue(rsPath);
+          this.failedPaths.add(rsPath);
           break;
         case 404:
         case 410:
           console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${rsPath} was deleted after this backup started`));
           this.dequeue(rsPath);
+          this.failedPaths.add(rsPath);
           break;
         case 500:
         case 502:
@@ -169,12 +172,14 @@ export class Backup {
         this.queue.set(rsPath, fetchRecord);  // moves to end
 
         if (fetchRecord.failures >= MAX_FAILURES_PER_PATH) {
-          console.error(colors.red(`${nextPath} ${fetchRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
-          this.dequeue(nextPath);
+          console.error(colors.red(`${rsPath} ${fetchRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
+          this.dequeue(rsPath);
+          this.failedPaths.add(rsPath);
         }
 
         if (this.isAbandoned) {
           this.dequeue(rsPath);
+          this.failedPaths.add(rsPath);
         }
       }
       // imposes a slight delay to allow the connection to be closed,
@@ -214,11 +219,19 @@ export class Backup {
   }
 
   complete() {
+    if (this.failedPaths.size > 0) {
+      console.error(colors.red(`These downloads failed:`));
+      console.error(colors.red(Array.from(this.failedPaths).join("\n")));
+    }
     if (this.isAbandoned) {
       console.error(colors.red(`Backup abandoned before completion. Exiting.`));
       process.exit(2);
     } else {
-      console.info(colors.green(`Backup completed`));
+      if (this.failedPaths.size === 0) {
+        console.info(colors.green(`Backup completed`));
+      } else {
+        console.error(colors.red(`Backup completed with ${this.failedPaths.size} failed downloads.`));
+      }
       process.exit(0);
     }
   }

@@ -122,6 +122,8 @@ describe("checkFetch", function (context) {
     assert.strictEqual(backup.queue.get(PATH1), undefined);
     // the file was written
     stat(path.join(backup.backupDir, ...PATH1.split('/')));
+    // the path is not marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // fetch complete, check queue
     assert.equal(setImmediate.mock.callCount(), 1);
     // simultaneous connections not maxed-out
@@ -151,6 +153,8 @@ describe("checkFetch", function (context) {
     // these fetches complete
     assert.strictEqual(backup.queue.get(PATH1), undefined);
     assert.strictEqual(backup.queue.get(PATH2), undefined);
+    // neither path is marked as failure
+    assert.equal(backup.failedPaths.size, 0);
     // fetches complete, check queue
     assert.equal(setImmediate.mock.callCount(), 2);
     // simultaneous connections maxed-out
@@ -166,6 +170,7 @@ describe("checkFetch", function (context) {
     const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 3}, ENDPOINT, '0.42');
     backup.enqueue(PATH1);
     backup.enqueue(PATH2);
+    backup.queue.get(PATH2).failures = 2;
     backup.enqueue(PATH3);
 
     fetchMock.mockGlobal()
@@ -180,18 +185,19 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is not yet marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
 
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[1].args[0].href, new URL(PATH2.slice(1), ENDPOINT).href);
-    // The client should try again
-    assert.deepEqual(backup.queue.get(PATH2), {inFlight: false, failures: 1});
-    // The item was moved to the back of the queue.
-    const queueOrder2 = Array.from(backup.queue.keys());
-    assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
+    // After third failure, the client should not try again
+    assert.deepEqual(backup.queue.get(PATH2), undefined);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH2.split('/'))), {code: 'ENOENT'});
+    // After third failure, the path is marked as a failure
+    assert.equal(backup.failedPaths.has(PATH2), true);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 2);
   });
@@ -216,6 +222,8 @@ describe("checkFetch", function (context) {
     assert.strictEqual(backup.queue.get(PATH1), undefined);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is marked as a failure
+    assert.ok(backup.failedPaths.has(PATH1));
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
 
@@ -225,6 +233,8 @@ describe("checkFetch", function (context) {
     assert.strictEqual(backup.queue.get(PATH2), undefined);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is marked as a failure
+    assert.ok(backup.failedPaths.has(PATH2));
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 2);
   });
@@ -252,6 +262,8 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is not yet marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
 
@@ -264,6 +276,8 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder2, [PATH3, PATH1, PATH2 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH2.split('/'))), {code: 'ENOENT'});
+    // the path is not yet marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 2);
   });
@@ -297,6 +311,8 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is not marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
   });
@@ -334,6 +350,8 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is not marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
   });
@@ -367,6 +385,8 @@ describe("checkFetch", function (context) {
     assert.deepEqual(queueOrder, [ PATH2, PATH3, PATH1 ]);
     // the file was not written
     await assert.rejects(stat.bind(this, path.join(backup.backupDir, ...PATH1.split('/'))), {code: 'ENOENT'});
+    // the path is not marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
     // when fetch is complete, checks queue
     assert.equal(setImmediate.mock.callCount(), 1);
   });
