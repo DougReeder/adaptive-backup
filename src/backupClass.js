@@ -45,6 +45,9 @@ export class Backup {
       }
     }
 
+    if (process.env.NODE_DEBUG) {
+      console.time('total download time')
+    }
     console.info(`Starting backup of ${this.category ? "“" + this.category + "”" : "all categories"}`);
     const initialFolder = this.category
         ? `/${this.category}/`
@@ -222,6 +225,9 @@ export class Backup {
     if (this.failedPaths.size > 0) {
       console.error(colors.red(`These downloads failed:`));
       console.error(colors.red(Array.from(this.failedPaths).join("\n")));
+    }
+    if (process.env.NODE_DEBUG) {
+      console.timeEnd('total download time')
     }
     if (this.isAbandoned) {
       console.error(colors.red(`Backup abandoned before completion. Exiting.`));
