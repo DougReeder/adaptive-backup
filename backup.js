@@ -29,7 +29,7 @@ program
     .option('-t, --token <token>', 'valid bearer token')
     .option('-c, --category <category>', 'category (base directory) to back up', stringWithoutSlashes, '')
     .option('-p, --include-public', 'when backing up a single category, include the public folder of that category', false)
-    .option('-s, --simultaneous <limit>', 'number of simultaneous connections', 4)
+    .option('-s, --simultaneous <limit>', 'number of simultaneous connections', 9)
 
 program.parse(process.argv);
 const options = program.opts();
