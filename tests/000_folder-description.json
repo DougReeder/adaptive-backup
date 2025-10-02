@@ -1,0 +1,26 @@
+{
+    "@context": "http://remotestorage.io/spec/folder-description",
+    "items": {
+        "document1": {
+            "ETag": "\"9dc362832f9c7dfcf0e6c2c3f5d70f1c\"",
+            "Content-Type": "text/plain; charset=utf8",
+            "Content-Length": 34475,
+            "Last-Modified": "Tue, 16 Jul 2024 09:08:23 GMT"
+        },
+        "document2": {
+            "ETag": "\"bd75c19d48106aefc2d278b439aab11f\"",
+            "Content-Type": "text/markdown; charset=utf8",
+            "Content-Length": 36708,
+            "Last-Modified": "Tue, 29 Oct 2024 16:56:32 GMT"
+        },
+        "document3": {
+            "ETag": "\"83048304389d48106580584085409540\"",
+            "Content-Type": "text/rtf; charset=binary",
+            "Content-Length": 5703,
+            "Last-Modified": "Wed, 01 Oct 2025 21:37:14 GMT"
+        },
+        "subfolder/": {
+            "ETag": "\"85049825084528054205480458\""
+        }
+    }
+}

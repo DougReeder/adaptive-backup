@@ -192,12 +192,16 @@ export class Backup {
   }
 
   async handleFolder(folderPath, res) {
-    const items = (await res.json()).items;
+    const resText = await res.text();
+    const items = JSON.parse(resText).items;
     console.debug(colors.gray((folderPath + ": " + JSON.stringify(items)).slice(0, 125)));
 
     const directory = path.join(this.backupDir, ...folderPath.split('/'));
-    console.info(`creating directory ${directory}`);
+    console.info(`creating directory “${directory}” and folder description`);
     await mkdir(directory, {recursive: true});
+
+    const folderDescriptionPath = path.join(this.backupDir, ...folderPath.split('/'), '000_folder-description.json');
+    await writeFile(folderDescriptionPath, resText);
 
     for (const rsPath in items) {
       this.enqueue(folderPath + rsPath);

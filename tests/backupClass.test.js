@@ -4,11 +4,13 @@ import fetchMock from 'fetch-mock';
 import path from 'node:path';
 import { mkdir, rm, stat } from 'node:fs/promises';
 import { Backup } from "../src/backupClass.js";
+import folderDescription from './000_folder-description.json' with { type: 'json' };
 
 const ORIGIN = 'https://myapp.a';
-const PATH1 = '/category/folder/document1';
-const PATH2 = '/category/folder/document2';
-const PATH3 = '/category/folder/document3';
+const FOLDER_PATH = '/category/folder/';
+const PATH1 = FOLDER_PATH + 'document1';
+const PATH2 = FOLDER_PATH + 'document2';
+const PATH3 = FOLDER_PATH + 'document3';
 const ENDPOINT = 'https://a.b/user/';
 
 describe("execute", function() {
@@ -121,7 +123,43 @@ describe("checkFetch", function (context) {
     // this fetch is complete
     assert.strictEqual(backup.queue.get(PATH1), undefined);
     // the file was written
-    stat(path.join(backup.backupDir, ...PATH1.split('/')));
+    assert.ok((await stat(path.join(backup.backupDir, ...PATH1.split('/')))).isFile());
+    // the path is not marked as a failure
+    assert.equal(backup.failedPaths.size, 0);
+    // fetch complete, check queue
+    assert.equal(setImmediate.mock.callCount(), 1);
+    // simultaneous connections not maxed-out
+    assert.equal(setTimeout.mock.callCount(), 1);
+  });
+
+  it("should write folder to file 000_folder-description.json", async function (t) {
+    const BACKUP_PATH = '/tmp/write-folder/'
+    await rm(BACKUP_PATH, { recursive: true, force: true });
+    t.mock.method(global, "setImmediate");
+    t.mock.method(global, "setTimeout");
+    const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 3}, ENDPOINT, '0.42');
+    backup.enqueue(FOLDER_PATH);
+
+    fetchMock.mockGlobal().route(new URL(FOLDER_PATH.slice(1), ENDPOINT), folderDescription
+    );
+
+    const checkPrmse = backup.checkFetch();
+    await backup.pausePrms;
+    assert.deepEqual(backup.queue.get(FOLDER_PATH), {inFlight: true, failures: 0});
+    await checkPrmse;
+    const call = fetchMock.callHistory.lastCall();
+    assert.equal(call.args[0].href, new URL(FOLDER_PATH.slice(1), ENDPOINT).href);
+    // this fetch is complete
+    assert.strictEqual(backup.queue.get(FOLDER_PATH), undefined);
+    // the folder children were queued
+    for (const childPath of Object.keys(folderDescription.items)) {
+      assert.deepEqual(backup.queue.get(FOLDER_PATH + childPath), {inFlight: false, failures: 0});
+    }
+    assert.equal(backup.queue.size, Object.keys(folderDescription.items).length );
+    // the directory was created
+    assert.ok((await stat(path.join(backup.backupDir, ...FOLDER_PATH.split('/')))).isDirectory());
+    // the remoteStorage folder description was saved to a file
+    assert.ok((await stat(path.join(backup.backupDir, ...FOLDER_PATH.split('/'), '000_folder-description.json'))).isFile());
     // the path is not marked as a failure
     assert.equal(backup.failedPaths.size, 0);
     // fetch complete, check queue
