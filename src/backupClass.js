@@ -6,6 +6,7 @@ import encodePath from './encodePath.js';
 import colors from "colors";
 
 const MAX_FAILURES_PER_PATH = 3;
+const INITIAL_RETRY_AFTER_MS = 1500;
 
 export class Backup {
   ORIGIN;
@@ -20,7 +21,7 @@ export class Backup {
   queue = new Map();
   failedPaths = new Set();
   pausePrms = Promise.resolve(true);   // initially not paused
-  defaultRetryAfterMs = 1500;
+  defaultRetryAfterMs = INITIAL_RETRY_AFTER_MS;
   isAbandoned = false;
 
   constructor(ORIGIN, options, storageEndpoint, programVersion) {
@@ -134,6 +135,7 @@ export class Backup {
       switch (res.status) {
         case 200:
           await handle(rsPath, res);
+          this.defaultRetryAfterMs = Math.max(0.9 * this.defaultRetryAfterMs, INITIAL_RETRY_AFTER_MS);
           break;
         case 429:
         case 503:
@@ -253,7 +255,7 @@ export class Backup {
     }
     if (!(retryAfterMs > 0)) {
       retryAfterMs = this.defaultRetryAfterMs;
-      this.defaultRetryAfterMs *= 2;
+      this.defaultRetryAfterMs *= 1.5;
     }
     if (retryAfterMs > 60 * 60 * 1000) {   // 1 hour
       console.error(colors.red(`Pausing for ${retryAfterMs/1000/60} minutes is too long.`));

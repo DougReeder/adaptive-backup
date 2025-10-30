@@ -109,6 +109,7 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH2);
     backup.queue.get(PATH2).inFlight = true;
     backup.enqueue(PATH3);
+    backup.defaultRetryAfterMs = 10_000;
 
     fetchMock.mockGlobal().route(new URL(PATH1.slice(1), ENDPOINT), {"name":"test","@context":"http://remotestorage.io/spec/modules\
 /myfavoritedrinks/drink"}
@@ -130,6 +131,8 @@ describe("checkFetch", function (context) {
     assert.equal(setImmediate.mock.callCount(), 1);
     // simultaneous connections not maxed-out
     assert.equal(setTimeout.mock.callCount(), 1);
+    // successful fetches reduce default retry-after
+    assert.equal(backup.defaultRetryAfterMs, 9_000);
   });
 
   it("should write folder to file 000_folder-description.json", async function (t) {
@@ -139,6 +142,7 @@ describe("checkFetch", function (context) {
     t.mock.method(global, "setTimeout");
     const backup = new Backup(ORIGIN, {backupDir: BACKUP_PATH, simultaneous: 3}, ENDPOINT, '0.42');
     backup.enqueue(FOLDER_PATH);
+    backup.defaultRetryAfterMs = 1600;
 
     fetchMock.mockGlobal().route(new URL(FOLDER_PATH.slice(1), ENDPOINT), folderDescription
     );
@@ -166,6 +170,8 @@ describe("checkFetch", function (context) {
     assert.equal(setImmediate.mock.callCount(), 1);
     // simultaneous connections not maxed-out
     assert.equal(setTimeout.mock.callCount(), 1);
+    // default retry-after never goes below initial value
+    assert.equal(backup.defaultRetryAfterMs, 1500);
   });
 
   it("should limit # simultaneous connections [HTTP]", async function () {
@@ -415,7 +421,7 @@ describe("checkFetch", function (context) {
     // verifies warning was logged
     const pauseMsg = console.warn.mock.calls.find(call => /pausing for 1.5s/.test(call.arguments[0]));
     assert(pauseMsg);
-    assert.equal(backup.defaultRetryAfterMs, 3000);
+    assert.equal(backup.defaultRetryAfterMs, 2250);
     // The client should try again
     assert.deepEqual(backup.queue.get(PATH1), {inFlight: false, failures: 0});
     // The item was moved to the back of the queue.
