@@ -1,0 +1,11 @@
+{
+    "@context": "http://remotestorage.io/spec/folder-description",
+    "items": {
+        "category1/": {
+            "ETag": "111-irrelevant-111"
+        },
+        "category2/": {
+            "ETag": "222-irrelevant-222"
+        }
+    }
+}

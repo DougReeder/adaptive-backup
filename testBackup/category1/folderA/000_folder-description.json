@@ -1,0 +1,15 @@
+{
+    "@context": "http://remotestorage.io/spec/folder-description",
+    "items": {
+        "cms-inner.csv": {
+            "ETag": "\"4c2d3293246cec8314698eac5acb9789-cached\"",
+            "Content-Type": "text/csv; charset=UTF-8",
+            "Content-Length": 101176
+        },
+        "size-by-ext.awk": {
+            "ETag": "\"30259989a31a3f08480c2868e006f235-cached\"",
+            "Content-Type": "text/x-awk; charset=ascii",
+            "Content-Length": 10279
+        }
+    }
+}

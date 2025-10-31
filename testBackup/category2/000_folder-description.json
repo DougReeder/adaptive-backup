@@ -1,0 +1,10 @@
+{
+    "@context": "http://remotestorage.io/spec/folder-description",
+    "items": {
+        "equation.gif": {
+            "ETag": "\"1cf3daf3b211512c128642b4ce5750f6-cached\"",
+            "Content-Type": "image/gif; charset=binary",
+            "Content-Length": 101209
+        }
+    }
+}

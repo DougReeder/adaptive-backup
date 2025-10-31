@@ -240,7 +240,7 @@ export class Backup {
       process.exit(2);
     } else {
       if (this.failedPaths.size === 0) {
-        console.info(colors.green(`Backup completed`));
+        console.info(colors.green(`Backup fully completed`));
       } else {
         console.error(colors.red(`Backup completed with ${this.failedPaths.size} failed downloads.`));
       }
