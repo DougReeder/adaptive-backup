@@ -7,6 +7,8 @@ import { createHash } from 'node:crypto';
 import colors from "colors";
 import {fileTypeFromFile} from 'file-type';
 import mime from 'mime';
+import {errToMessage} from './errToMessage.js';
+import {summary} from "./summary.js";
 
 const MAX_FAILURES_PER_PATH = 3;
 const FOLDER_DESCRIPTION = '000_folder-description.json';
@@ -54,7 +56,7 @@ export class Restore {
         await this.listDirectory(publicFolder);
       } catch (err) {
         if ('ENOENT' !== err.code) {
-          console.error(colors.red(publicFolder + ": " + (err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err)));
+          console.error(colors.red(publicFolder + ": " + errToMessage(err)));
         }
       }
     }
@@ -78,7 +80,7 @@ export class Restore {
       if ('ENOENT' === err.code) {
         console.warn(colors.yellow(`${path.posix.join(folderPath, FOLDER_DESCRIPTION)} missing; will calculate types from files`));
       } else {
-        console.error(colors.red(folderPath + FOLDER_DESCRIPTION + ": " + (err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err)));
+        console.error(colors.red(folderPath + FOLDER_DESCRIPTION + ": " + errToMessage(err)));
       }
     }
     if (!folderDescription?.items || 'object' !== typeof folderDescription?.items) {
@@ -96,7 +98,7 @@ export class Restore {
           await this.listDirectory(path.posix.join(folderPath, dirEnt.name, '/'));
         } // else is link, socket, pipe, etc.
       } catch (err) {
-        console.error(colors.red(folderPath + dirEnt.name + ": " + (err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err)));
+        console.error(colors.red(folderPath + dirEnt.name + ": " + errToMessage(err)));
       }
     }
   }
@@ -206,11 +208,11 @@ export class Restore {
           this.pausePrms = new Promise((res) => {
             setTimeout(res, retryAfterMs);
           });
-          console.warn(colors.yellow(`${res.status}${res.statusText ? " " + res.statusText : ""}: pausing for ${retryAfterMs/1000}s, will retry ${rsPath}`));
+          console.warn(colors.yellow(await summary(res, ` pausing for ${retryAfterMs/1000}s, will retry ${rsPath}`)));
           break;
         case 401:
         case 403:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""}: This token lacks permission to write ${rsPath}`));
+          console.error(colors.red(await summary(res, ` The token lacks permission to write ${rsPath}`)));
           this.dequeue(rsPath);
           this.failedPaths.add(rsPath);
           break;
@@ -220,12 +222,12 @@ export class Restore {
           ++putRecord.failures;
           // falls through
         case 504:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${await res.text()}: will retry ${rsPath}`));
+          console.error(colors.red(await summary(res, ` will retry ${rsPath}`)));
           break;
       }
     } catch(err) {
       ++putRecord.failures;
-      console.error(colors.red(rsPath + ": " + (err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err)));
+      console.error(colors.red(rsPath + ": " + errToMessage(err)));
     } finally {
       if (this.queue.has(rsPath)) {
         putRecord.inFlight = false;
@@ -233,7 +235,7 @@ export class Restore {
         this.queue.set(rsPath, putRecord);  // moves to end
 
         if (putRecord.failures >= MAX_FAILURES_PER_PATH) {
-          console.error(colors.red(`${rsPath} ${putRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
+          console.error(colors.red(`${rsPath}: ${putRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
           this.dequeue(rsPath);
           this.failedPaths.add(rsPath);
         }

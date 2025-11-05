@@ -9,6 +9,7 @@ import addQueryParamsToURL from "./src/addQueryParamsToURL.js"
 import WebFinger from "webfinger.js";
 import opener from "opener";
 import {Restore} from "./src/restoreClass.js";
+import {errToMessage} from "./src/errToMessage.js";
 
 if (!process.env.NODE_DEBUG) {
   console.debug = () => {};
@@ -86,7 +87,7 @@ do {
     storageEndpoint = '/' === link.href.slice(-1) ? link.href : link.href + '/';
   } catch (err) {
     if ("canceled" === err.message) { process.exit(1); }
-    console.error(colors.red(`WebFinger for “${userAddress}” failed:`, err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
+    console.error(colors.red(`WebFinger for “${userAddress}” failed:`, errToMessage(err)));
     userAddress = '';
   }
 } while (!storageEndpoint);
@@ -108,8 +109,8 @@ if (!options.token) {
 }
 
 try {
-  const backup = new Restore(ORIGIN, options, storageEndpoint, pkg.version);
-  backup.execute();
+  const restore = new Restore(ORIGIN, options, storageEndpoint, pkg.version);
+  restore.execute();
 
   process.on('SIGINT', handleInterruption);
   process.on('SIGTERM', handleInterruption);
@@ -118,15 +119,15 @@ try {
 
   function handleInterruption(signal) {
       console.error(colors.red(`Received ${signal}`));
-      backup.abandonGracefully();
+      restore.abandonGracefully();
 
       setTimeout(() => {
         console.error(colors.red(`Exiting abruptly. These downloads are probably incomplete:`));
-        const incomplete = Array.from(backup.queue.keys()).join("\n");
+        const incomplete = Array.from(restore.queue.keys()).join("\n");
         console.error(colors.red(incomplete));
         process.exit(3);
       }, 10_000)
   }
 } catch (err) {
-  console.error(colors.red(err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
+  console.error(colors.red("setting up: " + errToMessage(err)));
 }

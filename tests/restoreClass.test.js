@@ -345,7 +345,7 @@ describe("putDocument using MD5 ETags", async function() {
     assert.equal(Array.from(restore.queue).at(-1)[0], PATH_B1);
     fetchMock.mockGlobal().
       once(new URL(PATH_A3.slice(1), ENDPOINT), {status: 429, headers: {'Retry-After': '7'}}).
-      once(new URL(PATH_B1.slice(1), ENDPOINT), {status: 503, headers: {'Retry-After': '10'}});
+      once(new URL(PATH_B1.slice(1), ENDPOINT), {status: 503, headers: {'Retry-After': '10'}, body: "offline for maintenance"});
     mock.method(restore, 'checkPut', () => {
       return Promise.resolve();
     });
@@ -440,8 +440,8 @@ describe("putDocument using MD5 ETags", async function() {
     const putRecord = { inFlight: false, failures: 1, metadata: undefined };
     restore.queue.set(PATH_A2, putRecord);
     fetchMock.mockGlobal().
-    once(new URL(PATH_A2.slice(1), ENDPOINT), 500).
-    once(new URL(PATH_A2.slice(1), ENDPOINT), 502);
+    once(new URL(PATH_A2.slice(1), ENDPOINT), {status: 500, body: "Null Pointer Exception"}).
+    once(new URL(PATH_A2.slice(1), ENDPOINT), {status: 502, body: "PROXY Protocol mismatch"});
     mock.method(restore, 'checkPut', () => {
       return Promise.resolve();
     });

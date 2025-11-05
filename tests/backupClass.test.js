@@ -294,8 +294,8 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH2);
     backup.enqueue(PATH3);
     fetchMock.mockGlobal()
-        .route(new URL(PATH1.slice(1), ENDPOINT), 500)
-        .route(new URL(PATH2.slice(1), ENDPOINT), 502);
+        .route(new URL(PATH1.slice(1), ENDPOINT), { status: 500, body: "server bug" })
+        .route(new URL(PATH2.slice(1), ENDPOINT), { status: 502, body: "invalid response from upstream" });
 
     await backup.checkFetch();
     assert.equal(fetchMock.callHistory.calls()[0].args[0].href, new URL(PATH1.slice(1), ENDPOINT).href);
@@ -375,7 +375,7 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH2);
     backup.enqueue(PATH3);
     fetchMock.mockGlobal()
-        .route(new URL(PATH1.slice(1), ENDPOINT), {status: 503, headers: {'Retry-After': RETRY_AFTER}});
+        .route(new URL(PATH1.slice(1), ENDPOINT), {status: 503, headers: {'Retry-After': RETRY_AFTER}, body: "down for maintenance"});
 
     let oldPausePrms = backup.pausePrms;
     await backup.checkFetch();
@@ -412,7 +412,7 @@ describe("checkFetch", function (context) {
     backup.enqueue(PATH2);
     backup.enqueue(PATH3);
     fetchMock.mockGlobal()
-        .route(new URL(PATH1.slice(1), ENDPOINT), 503);
+        .route(new URL(PATH1.slice(1), ENDPOINT), {status: 503, body: "rebooting"});
 
     let oldPausePrms = backup.pausePrms;
     await backup.checkFetch();

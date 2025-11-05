@@ -9,6 +9,7 @@ import addQueryParamsToURL from "./src/addQueryParamsToURL.js"
 import WebFinger from "webfinger.js";
 import opener from "opener";
 import {Backup} from "./src/backupClass.js";
+import {errToMessage} from "./src/errToMessage.js";
 
 if (!process.env.NODE_DEBUG) {
   console.debug = () => {};
@@ -85,7 +86,7 @@ do {
     storageEndpoint = '/' === link.href.slice(-1) ? link.href : link.href + '/';
   } catch (err) {
     if ("canceled" === err.message) { process.exit(1); }
-    console.error(colors.red(`WebFinger for “${userAddress}” failed:`, err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
+    console.error(colors.red(`WebFinger for “${userAddress}” failed:`, errToMessage(err)));
     userAddress = '';
   }
 } while (!storageEndpoint);
@@ -127,5 +128,5 @@ try {
       }, 10_000)
   }
 } catch (err) {
-  console.error(colors.red(err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
+  console.error("setting up: " + colors.red(errToMessage(err)));
 }

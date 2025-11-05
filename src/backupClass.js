@@ -4,6 +4,8 @@ import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import encodePath from './encodePath.js';
 import colors from "colors";
+import {summary} from "./summary.js";
+import {errToMessage} from "./errToMessage.js";
 
 const MAX_FAILURES_PER_PATH = 3;
 const INITIAL_RETRY_AFTER_MS = 1500;
@@ -143,17 +145,17 @@ export class Backup {
           this.pausePrms = new Promise((res) => {
             setTimeout(res, retryAfterMs);
           });
-          console.warn(colors.yellow(`${res.status}${res.statusText ? " " + res.statusText : ""}: pausing for ${retryAfterMs/1000}s, will retry ${rsPath}`))
+          console.warn(colors.yellow(await summary(res, ` pausing for ${retryAfterMs/1000}s, will retry ${rsPath}`)));
           break;
         case 401:
         case 403:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""}: This token lacks permission to read ${rsPath}`));
+          console.error(colors.red(await summary(res, ` The token lacks permission to read ${rsPath}`)));
           this.dequeue(rsPath);
           this.failedPaths.add(rsPath);
           break;
         case 404:
         case 410:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${rsPath} was deleted after this backup started`));
+          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""}: ${rsPath} was deleted after this backup started`));
           this.dequeue(rsPath);
           this.failedPaths.add(rsPath);
           break;
@@ -163,12 +165,12 @@ export class Backup {
           ++fetchRecord.failures;
           // falls through
         case 504:
-          console.error(colors.red(`${res.status}${res.statusText ? " " + res.statusText : ""} ${await res.text()}: will retry ${rsPath}`));
+          console.error(colors.red(await summary(res, ` will retry ${rsPath}`)));
           break;
       }
     } catch (err) {
       ++fetchRecord.failures;
-      console.error(colors.red(rsPath + ":", err.message || err.cause?.message || err.code || err.cause?.code || err.errno || err.cause?.errno || err));
+      console.error(colors.red(rsPath + ":", errToMessage(err)));
     } finally {
       // TODO: Should the request be aborted if we don't consume the body?
       if (this.queue.has(rsPath)) {
@@ -177,7 +179,7 @@ export class Backup {
         this.queue.set(rsPath, fetchRecord);  // moves to end
 
         if (fetchRecord.failures >= MAX_FAILURES_PER_PATH) {
-          console.error(colors.red(`${rsPath} ${fetchRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
+          console.error(colors.red(`${rsPath}: ${fetchRecord.failures}/${MAX_FAILURES_PER_PATH} failures; giving up`));
           this.dequeue(rsPath);
           this.failedPaths.add(rsPath);
         }
