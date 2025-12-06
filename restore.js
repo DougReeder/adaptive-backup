@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { program /*, InvalidArgumentError*/ } from "commander";
+import { program, Option /*, InvalidArgumentError*/ } from "commander";
 import pkg from "./package.json"  with { type: "json" };
 import process from "node:process";
 import colors from "colors";
@@ -27,11 +27,12 @@ program
     .version(pkg.version)
     .requiredOption('-o, --backup-dir <path>', 'backup directory path')
     .option('-u, --user-address <user address>', 'user address (user@host)')
-    .option('-t, --token <token>', 'valid bearer token')
-    .option('-c, --category <category>', 'category (base directory) to back up', stringWithoutSlashes, '')
+    .option('-t, --token <token>', 'token from a previous run')
+    .option('-c, --category <category>', 'category (base directory) to back up; leave blank for all', stringWithoutSlashes, '')
     .option('-p, --include-public', 'when backing up a single category, include the public folder of that category', false)
     .option('-s, --simultaneous <limit>', 'number of simultaneous connections', 9)
-    .option('-e, --etag-algorithm <algorithm>', 'default md5; set blank to use folder description', 'md5')
+    .option('-e, --etag-algorithm <algorithm>', 'default md5; set blank to use ETag in folder description', 'md5')
+    .addOption(new Option('-r, --rate-limit <time>').hideHelp())   // for compatibility with rs-backup
 
 program.parse(process.argv);
 const options = program.opts();
