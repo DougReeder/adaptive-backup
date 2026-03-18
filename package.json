@@ -10,7 +10,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "authpage": "aws s3 sync authPage/ s3://web-static.hominidsoftware.com/adaptivebackup/"
+    "authpage": "rsync -v --rsh='ssh -p 2222 -i ~/.ssh/id_passwordless' --archive --delete --prune-empty-dirs --human-readable --exclude '.DS_Store' authPage/* composed@hominidsoftware.com:/var/www/adaptivebackup/",
+    "authpage-s3": "aws s3 sync authPage/ s3://web-static.hominidsoftware.com/adaptivebackup/"
   },
   "repository": {
     "type": "git",
