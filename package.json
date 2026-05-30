@@ -29,7 +29,7 @@
   "homepage": "https://github.com/DougReeder/adaptive-backup#readme",
   "dependencies": {
     "colors": "^1.4.0",
-    "commander": "^14.0.1",
+    "commander": "^15.0.0",
     "file-type": "^21.0.0",
     "mime": "^4.1.0",
     "opener": "^1.5.2",
