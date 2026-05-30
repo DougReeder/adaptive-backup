@@ -34,7 +34,7 @@
     "mime": "^4.1.0",
     "opener": "^1.5.2",
     "prompt": "^1.3.0",
-    "webfinger.js": "^2.8.2"
+    "webfinger.js": "^3.0.4"
   },
   "devDependencies": {
     "fetch-mock": "^12.5.4"
