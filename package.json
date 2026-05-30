@@ -37,6 +37,6 @@
     "webfinger.js": "^2.8.2"
   },
   "devDependencies": {
-    "fetch-mock": "^12.5.4"
+    "fetch-mock": "^12.6.0"
   }
 }
